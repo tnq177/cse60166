@@ -49,7 +49,7 @@ function init() {
                 else {
                     dstBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
                 }
-                if (isLanding && hero.position.x >= dstBox.position.x - 10 && hero.position.x <= dstBox.position.x + 10){// && hero.position.y >= midBox.geometry.parameters.height / 2 + HERO_RADIUS && hero.position.y - midBox.geometry.parameters.height / 2 - HERO_RADIUS <= 10) {
+                if (isLanding && hero.mesh.position.x >= dstBox.position.x - 10 && hero.mesh.position.x <= dstBox.position.x + 10){// && hero.position.y >= midBox.geometry.parameters.height / 2 + HERO_RADIUS && hero.position.y - midBox.geometry.parameters.height / 2 - HERO_RADIUS <= 10) {
                     isJumpTwice = true;
                     isHit = true;
                 }
@@ -250,21 +250,64 @@ Ground = function() {
     }
 }
 
-function createHero() {
+// function createHero() {
+//     var mat = new THREE.MeshPhongMaterial({
+//         color: Colors.brownDark,
+//         transparent: true,
+//         opacity: 1.0,
+//         flatShading: THREE.FlatShading,
+//     });
+//     var geom = new THREE.SphereGeometry( HERO_RADIUS, 32, 32 );
+//     hero = new THREE.Mesh(geom, mat);
+//     hero.castShadow = true;
+
+//     var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
+//     hero.position.x = midBox.position.x;
+//     hero.position.y = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
+//     scene.add(hero);
+// }
+
+Hero = function() {
     var mat = new THREE.MeshPhongMaterial({
         color: Colors.brownDark,
         transparent: true,
         opacity: 1.0,
         flatShading: THREE.FlatShading,
     });
-    var geom = new THREE.SphereGeometry( HERO_RADIUS, 32, 32 );
-    hero = new THREE.Mesh(geom, mat);
-    hero.castShadow = true;
-
+    
     var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-    hero.position.x = midBox.position.x;
-    hero.position.y = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
-    scene.add(hero);
+    var x = midBox.position.x;    
+    var y = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
+
+    this.mesh = new THREE.Object3D();
+    for (var i = 0; i < 6; i++) {
+        var geom;
+        if (i === 0) {
+            geom = new THREE.SphereGeometry( HERO_RADIUS , 32, 32 );
+            mat.opacity = 0.0;
+        }
+        else {
+            geom = new THREE.SphereGeometry( HERO_RADIUS - 2, 32, 32 );
+            mat.opacity = 1.0;
+        }
+        var circle = new THREE.Mesh(geom, mat);
+        if (i === 0) {
+            circle.position.x = x;
+            circle.position.y = y;
+        }
+        else {
+            circle.position.x = 2 * Math.cos(72 * (i-1) * Math.PI/180);
+            circle.position.y = 2 * Math.sin(72 * (i-1) * Math.PI/180);
+            this.mesh.add(circle);
+        }
+    }
+    this.mesh.position.x = x;
+    this.mesh.position.y = y;
+}
+
+function createHero() {
+    hero = new Hero();
+    scene.add(hero.mesh);
 }
 
 function createGround() {
@@ -303,13 +346,14 @@ function jump() {
     for (var i = 0; i < nBlocs; i++) {
         oldBlockPositions.push(ground.mesh.children[i].position.x);
     }
-    var oldHeroPosition = hero.position.y;
+    var oldHeroPosition = hero.mesh.position.y;
 
     var update = function() {
         for (var i = 0; i < nBlocs; i++) {
             ground.mesh.children[i].position.x = oldBlockPositions[i] + displacement.dx;
         }
-        hero.position.y = oldHeroPosition + displacement.dy;
+        hero.mesh.position.y = oldHeroPosition + displacement.dy;
+        hero.mesh.rotation.z -= 0.05;
     }
     var displacement = {dx: 0, dy: 0};
 

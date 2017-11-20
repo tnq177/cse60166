@@ -12,13 +12,17 @@ var HEIGHT = window.innerHeight;
 var BOX_WIDTH = 20;
 var BOX_HEIGHTS = [10, 60];
 var HERO_RADIUS = 5;
+var JUMP_SPEED = 500;
 var nBlocs = 3 + Math.floor(WIDTH / BOX_WIDTH);
 
 var scene, camera, fieldOfView, aspectRatio, nearPlane, farPlane, HEIGHT, WIDTH, renderer, container;
 var ground, hero;
 var hemisphereLight, shadowLight;
 
-var fps, fpsInterval, startTime, now, then, elapsed;
+var isRunning = false;
+var isJumpTwice = false;
+var isLanding = false;
+var isHit = false;
 
 function init() {
     // set up the scene, the camera and the renderer
@@ -30,10 +34,35 @@ function init() {
     // // add the objects
     createGround();
     createHero();
-    // createSky();
+    render();
+    document.addEventListener("keydown", function(event) {
+        if (event.which == 32) {
+            if (!isRunning) {
+                isRunning = true;
+                startGame();
+            }
+            else {
+                var dstBox;
+                if (isJumpTwice) {
+                    dstBox = ground.mesh.children[Math.floor(nBlocs/2)+2];
+                }
+                else {
+                    dstBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
+                }
+                if (isLanding && hero.position.x >= dstBox.position.x - 10 && hero.position.x <= dstBox.position.x + 10){// && hero.position.y >= midBox.geometry.parameters.height / 2 + HERO_RADIUS && hero.position.y - midBox.geometry.parameters.height / 2 - HERO_RADIUS <= 10) {
+                    isJumpTwice = true;
+                    isHit = true;
+                }
+                else {
+                    isHit = false;
+                }
+            }
+        }
+    });
+}
 
-    // start a loop that will update the objects' positions 
-    // and render the scene on each frame
+
+function startGame(){
     jump();
     loop();
 }
@@ -167,7 +196,7 @@ Ground = function() {
     });
 
     this.addBlock = function(x) {
-        var geom = new THREE.BoxGeometry(BOX_WIDTH, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
+        var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
         var m = new THREE.Mesh(geom, mat);
         m.position.x = x;
         m.receiveShadow = true;
@@ -185,9 +214,9 @@ function createHero() {
         opacity: 1.0,
         flatShading: THREE.FlatShading,
     });
-    // var geom = new THREE.BoxGeometry(BOX_WIDTH, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
     var geom = new THREE.SphereGeometry( HERO_RADIUS, 32, 32 );
     hero = new THREE.Mesh(geom, mat);
+    hero.castShadow = true;
 
     var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
     hero.position.x = midBox.position.x;
@@ -201,15 +230,16 @@ function createGround() {
 }
 
 function jump() {
-    var currY, nextY;
-    var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-    var prevBox = ground.mesh.children[Math.floor(nBlocs/2)-1];
-    var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
-    currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
-    nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
+    // var currY, nextY;
+    // var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
+    // var prevBox = ground.mesh.children[Math.floor(nBlocs/2)-1];
+    // var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
+    // currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
+    // nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
 
-    var midY = Math.max(currY, nextY) + HERO_RADIUS;
-    
+    // var midY = Math.max(currY, nextY) + HERO_RADIUS;
+    isLanding = false;
+    isHit = false;
     var oldBlockPositions = [];
     for (var i = 0; i < nBlocs; i++) {
         oldBlockPositions.push(ground.mesh.children[i].position.x);
@@ -217,8 +247,6 @@ function jump() {
     var oldHeroPosition = hero.position.y;
 
     var update = function() {
-        // hero.position.x = current.x;
-        // hero.position.y = current.y;
         for (var i = 0; i < nBlocs; i++) {
             ground.mesh.children[i].position.x = oldBlockPositions[i] + displacement.dx;
         }
@@ -228,25 +256,82 @@ function jump() {
 
     TWEEN.removeAll();
 
-    var firstJump = new TWEEN.Tween(displacement)
-                        .to({dx: -BOX_WIDTH/2, dy: midY - currY}, 250)
-                        .easing(TWEEN.Easing.Sinusoidal.In)
-                        .delay(10)
-                        .onUpdate(update);
-    var secondJump = new TWEEN.Tween(displacement)
-                        .to({dx: -BOX_WIDTH, dy: nextY - currY}, 250)
-                        .easing(TWEEN.Easing.Sinusoidal.Out)
-                        .delay(10)
-                        .onUpdate(update)
-                        .onComplete(function() {
-                            ground.mesh.children.shift();
-                            ground.addBlock((nBlocs - 1) * BOX_WIDTH);
-                            TWEEN.removeAll();
-                            jump();
-                        });
+    var DX, DY1, DY2;
+    if (isJumpTwice) {
+        var currY, nextY, maxY;
+        var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
+        var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
+        var dstBox = ground.mesh.children[Math.floor(nBlocs/2)+2];
+        currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
+        nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
+        dstY = dstBox.geometry.parameters.height / 2 + HERO_RADIUS;
+        maxY = Math.max(Math.max(currY, nextY), dstY) + HERO_RADIUS;
+        DY1 = maxY - currY + 2 * HERO_RADIUS;
+        DY2 = dstY - currY;
+        var firstJump = new TWEEN.Tween(displacement)
+                            .to({dx: -BOX_WIDTH, dy: DY1}, JUMP_SPEED)
+                            .easing(TWEEN.Easing.Sinusoidal.In)
+                            .delay(100)
+                            .onStart(function() {
+                                isLanding = true;
+                            })
+                            .onUpdate(update);
+        var secondJump = new TWEEN.Tween(displacement)
+                            .to({dx: -BOX_WIDTH*2, dy: DY2}, JUMP_SPEED)
+                            .easing(TWEEN.Easing.Sinusoidal.Out)
+                            .delay(10)
+                            .onUpdate(update)
+                            .onComplete(function() {
+                                isJumpTwice = false;
+                                if (isHit) {
+                                    isJumpTwice = true;
+                                }
+                                isLanding = false;
+                                ground.mesh.children.shift();
+                                ground.mesh.children.shift();
+                                ground.addBlock((nBlocs - 2) * BOX_WIDTH);
+                                ground.addBlock((nBlocs - 1) * BOX_WIDTH);
+                                TWEEN.removeAll();
+                                jump();
+                            });
 
-    firstJump.chain(secondJump);
-    firstJump.start();
+        firstJump.chain(secondJump);
+        firstJump.start();
+    }
+    else {
+        var currY, nextY, midY;
+        var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
+        var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
+        currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
+        nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
+        midY = Math.max(currY, nextY) + HERO_RADIUS;
+        DY1 = midY - currY + HERO_RADIUS;
+        DY2 = nextY - currY;
+        var firstJump = new TWEEN.Tween(displacement)
+                            .to({dx: -BOX_WIDTH/2, dy: DY1}, JUMP_SPEED)
+                            .easing(TWEEN.Easing.Sinusoidal.In)
+                            .delay(100)
+                            .onStart(function() {
+                                isLanding = true;
+                            })
+                            .onUpdate(update);
+        var secondJump = new TWEEN.Tween(displacement)
+                            .to({dx: -BOX_WIDTH, dy: DY2}, JUMP_SPEED)
+                            .easing(TWEEN.Easing.Sinusoidal.Out)
+                            .delay(10)
+                            .onUpdate(update)
+                            .onComplete(function() {
+                                isLanding = false;
+                                ground.mesh.children.shift();
+                                ground.addBlock((nBlocs - 1) * BOX_WIDTH);
+                                TWEEN.removeAll();
+                                jump();
+                            });
+
+        firstJump.chain(secondJump);
+        firstJump.start();
+    }
+
 
 }
 

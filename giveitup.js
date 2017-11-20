@@ -12,7 +12,7 @@ var HEIGHT = window.innerHeight;
 var BOX_WIDTH = 20;
 var BOX_HEIGHTS = [10, 60];
 var HERO_RADIUS = 5;
-var JUMP_SPEED = 500;
+var JUMP_TIME = 500;
 var nBlocs = 3 + Math.floor(WIDTH / BOX_WIDTH);
 
 var scene, camera, fieldOfView, aspectRatio, nearPlane, farPlane, HEIGHT, WIDTH, renderer, container;
@@ -69,8 +69,11 @@ function startGame(){
 
 function loop() {
     TWEEN.update();
-    requestAnimationFrame(loop);
-    render();
+    if (isRunning) {
+        requestAnimationFrame(loop);
+        render();
+        
+    }
 }
 
 function render() {
@@ -185,6 +188,22 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
 }
 
+function createBlock(isBad, x) {
+    var mat = new THREE.MeshPhongMaterial({
+        color: isBad ? Colors.red : Colors.blue,
+        transparent: true,
+        opacity: .6,
+        flatShading: THREE.FlatShading,
+    });    
+    var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
+    var m = new THREE.Mesh(geom, mat);
+    m.position.x = x;
+    m.receiveShadow = true;
+    m.isBad = isBad;
+
+    return m;
+}
+
 Ground = function() {
     this.mesh = new THREE.Object3D();
 
@@ -195,21 +214,33 @@ Ground = function() {
         flatShading: THREE.FlatShading,
     });
 
-    this.addBlock = function(x) {
-        var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
-        var m = new THREE.Mesh(geom, mat);
-        m.position.x = x;
-        m.receiveShadow = true;
-        this.mesh.add(m);
+    this.addBlock = function(x, isBad) {
+        if (isBad === undefined) {
+            isBad = getRandomInt(1, 10) == 1;
+        }
+        if (this.mesh.children.length > 0 && this.mesh.children[this.mesh.children.length-1].isBad) {
+            isBad = false;
+        }
+        // var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
+        // var m = new THREE.Mesh(geom, mat);
+        // m.position.x = x;
+        // m.receiveShadow = true;
+
+        this.mesh.add(createBlock(isBad, x));
     }
+
     for (var i = 0; i < nBlocs; i++) {
-        this.addBlock(i * BOX_WIDTH);
+        var isBad = getRandomInt(1, 10) == 1;
+        if (i == Math.floor(nBlocs / 2)) {
+            isBad = false;
+        }
+        this.addBlock(i * BOX_WIDTH, isBad);
     }
 }
 
 function createHero() {
     var mat = new THREE.MeshPhongMaterial({
-        color: Colors.red,
+        color: Colors.brownDark,
         transparent: true,
         opacity: 1.0,
         flatShading: THREE.FlatShading,
@@ -227,6 +258,15 @@ function createHero() {
 function createGround() {
     ground = new Ground();
     scene.add(ground.mesh);
+}
+
+function checkIfDead() {
+    var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
+    if (midBox.isBad) {
+        isRunning = false;
+    }
+
+    return isRunning;
 }
 
 function jump() {
@@ -268,8 +308,9 @@ function jump() {
         maxY = Math.max(Math.max(currY, nextY), dstY) + HERO_RADIUS;
         DY1 = maxY - currY + 2 * HERO_RADIUS;
         DY2 = dstY - currY;
+        DX = -BOX_WIDTH * 2;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY1}, JUMP_SPEED)
+                            .to({dx: -BOX_WIDTH, dy: DY1}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -277,7 +318,7 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH*2, dy: DY2}, JUMP_SPEED)
+                            .to({dx: -BOX_WIDTH*2, dy: DY2}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
@@ -291,6 +332,7 @@ function jump() {
                                 ground.mesh.children.shift();
                                 ground.addBlock((nBlocs - 2) * BOX_WIDTH);
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
+                                checkIfDead();
                                 TWEEN.removeAll();
                                 jump();
                             });
@@ -307,8 +349,9 @@ function jump() {
         midY = Math.max(currY, nextY) + HERO_RADIUS;
         DY1 = midY - currY + HERO_RADIUS;
         DY2 = nextY - currY;
+        DX = -BOX_WIDTH;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH/2, dy: DY1}, JUMP_SPEED)
+                            .to({dx: -BOX_WIDTH/2, dy: DY1}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -316,7 +359,7 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY2}, JUMP_SPEED)
+                            .to({dx: -BOX_WIDTH, dy: DY2}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
@@ -324,6 +367,7 @@ function jump() {
                                 isLanding = false;
                                 ground.mesh.children.shift();
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
+                                checkIfDead();
                                 TWEEN.removeAll();
                                 jump();
                             });
@@ -331,7 +375,6 @@ function jump() {
         firstJump.chain(secondJump);
         firstJump.start();
     }
-
 
 }
 

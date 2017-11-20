@@ -207,7 +207,8 @@ function createBlock(isBad, x) {
         opacity: .6,
         flatShading: THREE.FlatShading,
     });    
-    var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
+    // var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
+    var geom = new THREE.CylinderGeometry((BOX_WIDTH - 5)/2, (BOX_WIDTH - 5)/2, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]));
     var m = new THREE.Mesh(geom, mat);
     m.position.x = x;
     m.receiveShadow = true;

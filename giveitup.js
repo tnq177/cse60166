@@ -18,6 +18,7 @@ var nBlocs = 3 + Math.floor(WIDTH / BOX_WIDTH);
 var scene, camera, fieldOfView, aspectRatio, nearPlane, farPlane, HEIGHT, WIDTH, renderer, container;
 var ground, hero;
 var hemisphereLight, shadowLight;
+var audioLand, audioDie;
 
 var isRunning = false;
 var isJumpTwice = false;
@@ -27,9 +28,8 @@ var isHit = false;
 function init() {
     // set up the scene, the camera and the renderer
     createScene();
-
-    // add the lights
     createLights();
+    createSounds();
 
     // // add the objects
     createGround();
@@ -182,6 +182,18 @@ function createLights() {
     scene.add(shadowLight);
 }
 
+function createSounds() {
+    audioLand = document.createElement('audio');
+    var audioLandSource = document.createElement('source');
+    audioLandSource.src = './landing.mp3';
+    audioLand.appendChild(audioLandSource);
+
+    audioDie = document.createElement('audio');
+    var audioDieSource = document.createElement('source');
+    audioDieSource.src = './die.mp3';
+    audioDie.appendChild(audioDieSource);
+}
+
 function getRandomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
@@ -260,13 +272,20 @@ function createGround() {
     scene.add(ground.mesh);
 }
 
-function checkIfDead() {
+function checkIfDead(playSound) {
     var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
     if (midBox.isBad) {
         isRunning = false;
     }
 
-    return isRunning;
+    if (playSound) {
+        if (isRunning) {
+            audioLand.play();
+        }
+        else {
+            audioDie.play();
+        }
+    }
 }
 
 function jump() {
@@ -332,7 +351,7 @@ function jump() {
                                 ground.mesh.children.shift();
                                 ground.addBlock((nBlocs - 2) * BOX_WIDTH);
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
-                                checkIfDead();
+                                checkIfDead(true);
                                 TWEEN.removeAll();
                                 jump();
                             });
@@ -367,7 +386,7 @@ function jump() {
                                 isLanding = false;
                                 ground.mesh.children.shift();
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
-                                checkIfDead();
+                                checkIfDead(true);
                                 TWEEN.removeAll();
                                 jump();
                             });

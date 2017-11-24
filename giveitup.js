@@ -25,6 +25,44 @@ var isJumpTwice = false;
 var isLanding = false;
 var isHit = false;
 
+// For modifying the middle block (jumped on) and make it scatter
+THREE.ExplodeModifier = function () {
+};
+
+THREE.ExplodeModifier.prototype.modify = function ( geometry ) {
+
+    var vertices = [];
+
+    for ( var i = 0, il = geometry.faces.length; i < il; i ++ ) {
+
+        var n = vertices.length;
+
+        var face = geometry.faces[ i ];
+
+        var a = face.a;
+        var b = face.b;
+        var c = face.c;
+
+        var va = geometry.vertices[ a ];
+        var vb = geometry.vertices[ b ];
+        var vc = geometry.vertices[ c ];
+
+        vertices.push( va.clone() );
+        vertices.push( vb.clone() );
+        vertices.push( vc.clone() );
+
+        face.a = n;
+        face.b = n + 1;
+        face.c = n + 2;
+
+    }
+
+    geometry.vertices = vertices;
+
+};
+
+var explodeModifier = new THREE.ExplodeModifier();
+
 function init() {
     // set up the scene, the camera and the renderer
     createScene();
@@ -71,8 +109,7 @@ function loop() {
     TWEEN.update();
     if (isRunning) {
         requestAnimationFrame(loop);
-        render();
-        
+        render();        
     }
 }
 
@@ -200,6 +237,10 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
 }
 
+function getRandomArbitrary(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
 function createBlock(isBad, x) {
     var mat = new THREE.MeshPhongMaterial({
         color: isBad ? Colors.red : Colors.blue,
@@ -208,7 +249,7 @@ function createBlock(isBad, x) {
         flatShading: THREE.FlatShading,
     });    
     // var geom = new THREE.BoxGeometry(BOX_WIDTH - 5, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 20);
-    var geom = new THREE.CylinderGeometry((BOX_WIDTH - 5)/2, (BOX_WIDTH - 5)/2, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]));
+    var geom = new THREE.CylinderGeometry((BOX_WIDTH - 5)/2, (BOX_WIDTH - 5)/2, getRandomInt(BOX_HEIGHTS[0], BOX_HEIGHTS[1]), 8, 2);
     var m = new THREE.Mesh(geom, mat);
     m.position.x = x;
     m.receiveShadow = true;
@@ -250,23 +291,6 @@ Ground = function() {
         this.addBlock(i * BOX_WIDTH, isBad);
     }
 }
-
-// function createHero() {
-//     var mat = new THREE.MeshPhongMaterial({
-//         color: Colors.brownDark,
-//         transparent: true,
-//         opacity: 1.0,
-//         flatShading: THREE.FlatShading,
-//     });
-//     var geom = new THREE.SphereGeometry( HERO_RADIUS, 32, 32 );
-//     hero = new THREE.Mesh(geom, mat);
-//     hero.castShadow = true;
-
-//     var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-//     hero.position.x = midBox.position.x;
-//     hero.position.y = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
-//     scene.add(hero);
-// }
 
 Hero = function() {
     var mat = new THREE.MeshPhongMaterial({
@@ -333,39 +357,53 @@ function checkIfDead(playSound) {
 }
 
 function jump() {
-    // var currY, nextY;
-    // var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-    // var prevBox = ground.mesh.children[Math.floor(nBlocs/2)-1];
-    // var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
-    // currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
-    // nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
-
-    // var midY = Math.max(currY, nextY) + HERO_RADIUS;
     isLanding = false;
     isHit = false;
+
+    var midBlockIdx = Math.floor(nBlocs/2);
+    var blocks = ground.mesh.children;
     var oldBlockPositions = [];
     for (var i = 0; i < nBlocs; i++) {
-        oldBlockPositions.push(ground.mesh.children[i].position.x);
+        oldBlockPositions.push(blocks[i].position.x);
     }
     var oldHeroPosition = hero.mesh.position.y;
+    var centerBlockHeight = blocks[midBlockIdx].geometry.parameters.height + HERO_RADIUS * 2;
+
+    // Make the center block (to be jumped on) scatter-able
+    explodeModifier.modify(blocks[midBlockIdx].geometry);
+    var orgMidBlockVertXs = [];
+    var midBlockVertXDisplacements = [];
+    var midBlockVertices = blocks[midBlockIdx].geometry.vertices;
+    for (var i = 0; i < midBlockVertices.length; i++) {
+        orgMidBlockVertXs.push(midBlockVertices[i].x);
+        midBlockVertXDisplacements.push(getRandomArbitrary(-BOX_WIDTH/2, BOX_WIDTH/2));
+    }
 
     var update = function() {
         for (var i = 0; i < nBlocs; i++) {
-            ground.mesh.children[i].position.x = oldBlockPositions[i] + displacement.dx;
+            blocks[i].position.x = oldBlockPositions[i] + displacement.dx;
         }
         hero.mesh.position.y = oldHeroPosition + displacement.dy;
         hero.mesh.rotation.z -= 0.05;
+
+        // slowly pull down the jumped block 
+        blocks[midBlockIdx].position.y = displacement.dh;
+        // and explode it
+        for (var i = 0; i < midBlockVertices.length; i++) {
+            midBlockVertices[i].x = orgMidBlockVertXs[i] + displacement.dx_vertex * midBlockVertXDisplacements[i];
+        }
+        blocks[midBlockIdx].geometry.elementsNeedUpdate = true; // important
     }
-    var displacement = {dx: 0, dy: 0};
+    var displacement = {dx: 0, dy: 0, dh: 0, dx_vertex: 0.};
 
     TWEEN.removeAll();
 
     var DX, DY1, DY2;
     if (isJumpTwice) {
         var currY, nextY, maxY;
-        var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-        var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
-        var dstBox = ground.mesh.children[Math.floor(nBlocs/2)+2];
+        var midBox = blocks[midBlockIdx];
+        var nextBox = blocks[midBlockIdx+1];
+        var dstBox = blocks[midBlockIdx+2];
         currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
         nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
         dstY = dstBox.geometry.parameters.height / 2 + HERO_RADIUS;
@@ -374,7 +412,7 @@ function jump() {
         DY2 = dstY - currY;
         DX = -BOX_WIDTH * 2;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY1}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH, dy: DY1, dh: -centerBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -382,7 +420,7 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH*2, dy: DY2}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH*2, dy: DY2, dh: -centerBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
@@ -392,8 +430,11 @@ function jump() {
                                     isJumpTwice = true;
                                 }
                                 isLanding = false;
-                                ground.mesh.children.shift();
-                                ground.mesh.children.shift();
+                                scene.remove(blocks[midBlockIdx]);
+                                scene.remove(blocks[0]);
+                                scene.remove(blocks[1]);
+                                blocks.shift();
+                                blocks.shift();
                                 ground.addBlock((nBlocs - 2) * BOX_WIDTH);
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
                                 checkIfDead(true);
@@ -406,8 +447,8 @@ function jump() {
     }
     else {
         var currY, nextY, midY;
-        var midBox = ground.mesh.children[Math.floor(nBlocs/2)];
-        var nextBox = ground.mesh.children[Math.floor(nBlocs/2)+1];
+        var midBox = blocks[midBlockIdx];
+        var nextBox = blocks[midBlockIdx+1];
         currY = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
         nextY = nextBox.geometry.parameters.height / 2 + HERO_RADIUS;
         midY = Math.max(currY, nextY) + HERO_RADIUS;
@@ -415,7 +456,7 @@ function jump() {
         DY2 = nextY - currY;
         DX = -BOX_WIDTH;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH/2, dy: DY1}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH/2, dy: DY1, dh: -centerBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -423,12 +464,14 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY2}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH, dy: DY2, dh: -centerBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
                             .onComplete(function() {
                                 isLanding = false;
+                                scene.remove(blocks[midBlockIdx]);
+                                scene.remove(blocks[0]);
                                 ground.mesh.children.shift();
                                 ground.addBlock((nBlocs - 1) * BOX_WIDTH);
                                 checkIfDead(true);

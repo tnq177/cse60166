@@ -305,26 +305,12 @@ Hero = function() {
     var y = midBox.geometry.parameters.height / 2 + HERO_RADIUS;
 
     this.mesh = new THREE.Object3D();
-    for (var i = 0; i < 6; i++) {
-        var geom;
-        if (i === 0) {
-            geom = new THREE.SphereGeometry( HERO_RADIUS , 32, 32 );
-            mat.opacity = 0.0;
-        }
-        else {
-            geom = new THREE.SphereGeometry( HERO_RADIUS - 2, 32, 32 );
-            mat.opacity = 1.0;
-        }
+    for (var i = 0; i < 5; i++) {
+        var geom = new THREE.SphereGeometry( HERO_RADIUS - 2, 32, 32 );
         var circle = new THREE.Mesh(geom, mat);
-        if (i === 0) {
-            circle.position.x = x;
-            circle.position.y = y;
-        }
-        else {
-            circle.position.x = 2 * Math.cos(72 * (i-1) * Math.PI/180);
-            circle.position.y = 2 * Math.sin(72 * (i-1) * Math.PI/180);
-            this.mesh.add(circle);
-        }
+        circle.position.x = 2 * Math.cos(72 * (i-1) * Math.PI/180);
+        circle.position.y = 2 * Math.sin(72 * (i-1) * Math.PI/180);
+        this.mesh.add(circle);
     }
     this.mesh.position.x = x;
     this.mesh.position.y = y;

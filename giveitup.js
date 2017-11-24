@@ -353,7 +353,7 @@ function jump() {
         oldBlockPositions.push(blocks[i].position.x);
     }
     var oldHeroPosition = hero.mesh.position.y;
-    var centerBlockHeight = blocks[midBlockIdx].geometry.parameters.height + HERO_RADIUS * 2;
+    var midBlockHeight = blocks[midBlockIdx].geometry.parameters.height + HERO_RADIUS * 2;
 
     // Make the center block (to be jumped on) scatter-able
     explodeModifier.modify(blocks[midBlockIdx].geometry);
@@ -398,7 +398,7 @@ function jump() {
         DY2 = dstY - currY;
         DX = -BOX_WIDTH * 2;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY1, dh: -centerBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH, dy: DY1, dh: -midBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -406,7 +406,7 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH*2, dy: DY2, dh: -centerBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH*2, dy: DY2, dh: -midBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
@@ -442,7 +442,7 @@ function jump() {
         DY2 = nextY - currY;
         DX = -BOX_WIDTH;
         var firstJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH/2, dy: DY1, dh: -centerBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH/2, dy: DY1, dh: -midBlockHeight/2, dx_vertex: 0.5}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.In)
                             .delay(100)
                             .onStart(function() {
@@ -450,7 +450,7 @@ function jump() {
                             })
                             .onUpdate(update);
         var secondJump = new TWEEN.Tween(displacement)
-                            .to({dx: -BOX_WIDTH, dy: DY2, dh: -centerBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
+                            .to({dx: -BOX_WIDTH, dy: DY2, dh: -midBlockHeight, dx_vertex: 1.0}, JUMP_TIME)
                             .easing(TWEEN.Easing.Sinusoidal.Out)
                             .delay(10)
                             .onUpdate(update)
